@@ -23,11 +23,31 @@ Some prompts to answer:
 
 - What features does each `Song` use in your system
   - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
 
+ Genre, mood, energy, acousticness, valence
+- What information does your `UserProfile` store
+User profile: genre=string, mood=string, target_energy=float, likes_acoustic=Boolean
+
+- How does your `Recommender` compute a score for each song
+For each song in the catalog, compute a **total score** (0.0 – 1.0) that reflects how well
+the song matches the user's preferences. Songs with higher scores rank first.
+- How do you choose which songs to recommend
+We will be using the ranking rule takes all scored songs and decides which ones to return and in what order.
 You can include a simple diagram or bullet list if helpful.
+### Ranking Worked Example
+
+**User:** genre=pop, mood=happy, target_energy=0.80, likes_acoustic=False
+
+| Rank | Song | Score | Passes threshold? |
+|------|------|-------|-------------------|
+| 1 | Sunrise City | **0.971** | Yes |
+| 2 | Rooftop Lights | **0.891** | Yes |
+| 3 | Gym Hero | **0.748** | Yes |
+| 4 | Night Drive Loop | **0.412** | Yes |
+| 5 | Coffee Shop Stories | **0.311** | Yes |
+| — | Midnight Coding | 0.196 | **No — filtered** |
+| — | Library Rain | 0.181 | **No — filtered** |
+| — | Spacewalk Thoughts | 0.164 | **No — filtered** |
 
 ---
 
