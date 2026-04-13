@@ -126,6 +126,14 @@ Profiles shown: High-Energy Pop, Chill Lofi, Deep Intense Rock, and an
 adversarial case (pop + sad + 0.9 energy) where no catalog song matches the
 requested mood — the system silently falls back to genre + energy.
 
+### Extended output (tempo/valence/acoustic scoring + diversity penalty + tabulated)
+
+![Tabulated output with extended scoring and diversity penalty](docs/profile-recommendations-tabulated.png)
+
+Same four profiles run against the extended scorer (tempo, valence, and
+acousticness now contribute) and re-run with a diversity penalty (artist
+-0.60, genre -0.30) that breaks up single-artist monopolies in the top-5.
+
 ---
 
 ## Experiments You Tried
