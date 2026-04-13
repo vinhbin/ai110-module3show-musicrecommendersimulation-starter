@@ -115,6 +115,19 @@ You can add more tests in `tests/test_recommender.py`.
 
 ---
 
+## Sample Output
+
+Running `python src/main.py` against the 4 evaluation profiles produces the
+following ranked recommendations with per-reason numeric contributions:
+
+![Terminal output for all four profiles](docs/profile-recommendations.png)
+
+Profiles shown: High-Energy Pop, Chill Lofi, Deep Intense Rock, and an
+adversarial case (pop + sad + 0.9 energy) where no catalog song matches the
+requested mood — the system silently falls back to genre + energy.
+
+---
+
 ## Experiments You Tried
 
 Use this section to document the experiments you ran. For example:
