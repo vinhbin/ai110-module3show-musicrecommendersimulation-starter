@@ -34,6 +34,35 @@ the song matches the user's preferences. Songs with higher scores rank first.
 - How do you choose which songs to recommend
 We will be using the ranking rule takes all scored songs and decides which ones to return and in what order.
 You can include a simple diagram or bullet list if helpful.
+
+### Algorithm Recipe
+
+For each song in the catalog, the total score is calculated as follows:
+
+| Condition | Points |
+|-----------|--------|
+| `song.genre == prefs.favorite_genre` | +1.5 |
+| `song.mood == prefs.favorite_mood` | +1.0 |
+| `max(0.0, 1.0 - abs(song.energy - prefs.target_energy))` | +0.0 to +1.0 |
+| **Maximum possible score** | **3.5** |
+
+Songs are then sorted by total score in descending order and the top-K are returned.
+
+### Weighting Tradeoff
+
+The genre bonus (+1.5) dominates the mood bonus (+1.0). A song that matches genre but misses on mood and energy can still score 1.5, while a song that matches mood perfectly and has near-perfect energy similarity can only reach 2.0. This means genre heavily influences the ranking, and two songs with a perfect mood + energy match (score: 2.0) will always beat a genre-only match (score: 1.5) — but a genre match alone ties a song that hits mood perfectly with 0.5 energy similarity (1.0 + 0.5 = 1.5). Consider doubling the energy weight or raising the mood bonus if you want a more nuanced feel-first ranking.
+
+### System Flowchart
+
+```mermaid
+flowchart LR
+    A["Input: User Preferences\n(favorite_genre, favorite_mood,\ntarget_energy, likes_acoustic)"]
+    B["Process: Score Each Song\n• +1.5 if genre matches\n• +1.0 if mood matches\n• +0.0–1.0 energy similarity"]
+    C["Output: Top-K Ranked Songs\n(sorted by score descending)"]
+
+    A --> B --> C
+```
+
 ### Ranking Worked Example
 
 **User:** genre=pop, mood=happy, target_energy=0.80, likes_acoustic=False
