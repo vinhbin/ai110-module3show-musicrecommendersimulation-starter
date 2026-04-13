@@ -138,38 +138,20 @@ acousticness now contribute) and re-run with a diversity penalty (artist
 
 ## Experiments You Tried
 
-Use this section to document the experiments you ran. For example:
-
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+See [model_card.md §7 Evaluation](model_card.md#7-evaluation) for the
+weight-shift experiment table and profile comparisons.
 
 ---
 
 ## Limitations and Risks
 
-Summarize some limitations of your recommender.
-
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
+See [model_card.md §6 Limitations and Bias](model_card.md#6-limitations-and-bias).
 
 ---
 
 ## Reflection
 
-Read and complete `model_card.md`:
-
-[**Model Card**](model_card.md)
-
-Write 1 to 2 paragraphs here about what you learned:
-
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
+See [**Model Card**](model_card.md) and [**Personal Reflection**](reflection.md).
 
 
 ---
