@@ -65,6 +65,10 @@ def load_songs(csv_path: str) -> List[Dict]:
     return songs
 
 
+DIVERSITY_PENALTY_ARTIST = 0.6
+DIVERSITY_PENALTY_GENRE = 0.3
+
+
 def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     """Score a song against user prefs. Returns (score, reasons with numeric contributions)."""
     score = 0.0
@@ -84,13 +88,71 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
         score += energy_sim
         reasons.append(f"energy similarity (+{energy_sim:.2f})")
 
+    target_tempo = user_prefs.get("target_tempo")
+    if target_tempo is not None:
+        tempo_sim = max(0.0, 1.0 - abs(float(song["tempo_bpm"]) - float(target_tempo)) / 100.0)
+        score += tempo_sim
+        reasons.append(f"tempo similarity (+{tempo_sim:.2f})")
+
+    target_valence = user_prefs.get("target_valence")
+    if target_valence is not None:
+        valence_sim = max(0.0, 1.0 - abs(float(song["valence"]) - float(target_valence)))
+        score += valence_sim
+        reasons.append(f"valence similarity (+{valence_sim:.2f})")
+
+    likes_acoustic = user_prefs.get("likes_acoustic")
+    if likes_acoustic is not None:
+        acoustic_match = float(song["acousticness"]) if likes_acoustic else 1.0 - float(song["acousticness"])
+        score += acoustic_match
+        reasons.append(f"acousticness fit (+{acoustic_match:.2f})")
+
     return score, reasons
 
 
 def recommend_songs(
-    user_prefs: Dict, songs: List[Dict], k: int = 5
+    user_prefs: Dict,
+    songs: List[Dict],
+    k: int = 5,
+    diversity: bool = False,
 ) -> List[Tuple[Dict, float, List[str]]]:
-    """Score all songs, return top-k as (song, score, reasons)."""
+    """Score all songs, return top-k as (song, score, reasons).
+
+    When diversity=True, applies a penalty to repeat artists/genres already
+    present in the selected top list and re-ranks greedily.
+    """
     scored = [(song, *score_song(user_prefs, song)) for song in songs]
     scored.sort(key=lambda x: x[1], reverse=True)
-    return scored[:k]
+
+    if not diversity:
+        return scored[:k]
+
+    selected: List[Tuple[Dict, float, List[str]]] = []
+    remaining = list(scored)
+    seen_artists: set = set()
+    seen_genres: set = set()
+
+    while remaining and len(selected) < k:
+        best_idx = 0
+        best_adjusted = float("-inf")
+        best_penalty = 0.0
+        for i, (song, base, _) in enumerate(remaining):
+            penalty = 0.0
+            if song["artist"] in seen_artists:
+                penalty += DIVERSITY_PENALTY_ARTIST
+            if song["genre"] in seen_genres:
+                penalty += DIVERSITY_PENALTY_GENRE
+            adjusted = base - penalty
+            if adjusted > best_adjusted:
+                best_adjusted = adjusted
+                best_idx = i
+                best_penalty = penalty
+
+        song, base, reasons = remaining.pop(best_idx)
+        reasons = list(reasons)
+        if best_penalty:
+            reasons.append(f"diversity penalty (-{best_penalty:.2f})")
+        selected.append((song, base - best_penalty, reasons))
+        seen_artists.add(song["artist"])
+        seen_genres.add(song["genre"])
+
+    return selected
