@@ -242,6 +242,18 @@ the baseline was silent.
 
 ---
 
+## Video Walkthrough
+
+[Watch the Loom walkthrough](https://www.loom.com/share/YOUR_LINK_HERE)
+
+---
+
+## Portfolio
+
+VibeFinder started as a three-week exercise in building a transparent scoring system. By the end I had designed an agentic loop that plans, recommends, critiques its own output, and refines — and I could explain every number it produced. What this project says about me as an AI engineer: I care more about what a system *reveals* than what it *hides*. The agent doesn't just produce better recommendations; it tells you when it can't satisfy a preference and why it changed its mind. That instinct — making AI behavior auditable and honest rather than confident and opaque — is the thing I want to carry into every project I build.
+
+---
+
 ## Reflection
 
 See [model_card.md](model_card.md) for the full model card and
