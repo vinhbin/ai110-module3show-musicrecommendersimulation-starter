@@ -1,263 +1,249 @@
-# 🎵 Music Recommender Simulation
+# Music Recommender Simulation — VibeFinder
 
-## Project Summary
+## Original Project
 
-In this project you will build and explain a small music recommender system.
-
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+**VibeFinder 1.0** is a CLI music recommender that scores songs from a
+20-song CSV catalog against a user's genre, mood, and energy preferences,
+returning the top-5 matches with a transparent numeric breakdown of every
+contributing signal. The original goal was to make the scoring fully auditable
+— every recommendation ships with exact point contributions so a user can
+trace why a song ranked where it did.
 
 ---
 
-## How The System Works
+## Extended Project — VibeFinder 1.1 (Agentic Mode)
 
-Explain your design in plain language.
+VibeFinder 1.1 adds an opt-in **agentic recommendation loop** (`--agent`)
+that wraps the existing scorer in a five-step reasoning process:
+**Plan → Recommend → Critique → Refine → Finalize.**
+The agent inspects each user profile for known failure modes before scoring,
+examines the result list for artist monopolies and silently dropped mood
+signals, and re-runs with corrective settings when issues are found. Every
+intermediate decision is printed to stdout so the full reasoning chain is
+visible to any reader without needing to read source code.
 
-Some prompts to answer:
+---
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-
- Genre, mood, energy, acousticness, valence
-- What information does your `UserProfile` store
-User profile: genre=string, mood=string, target_energy=float, likes_acoustic=Boolean
-
-- How does your `Recommender` compute a score for each song
-For each song in the catalog, compute a **total score** (0.0 – 1.0) that reflects how well
-the song matches the user's preferences. Songs with higher scores rank first.
-- How do you choose which songs to recommend
-We will be using the ranking rule takes all scored songs and decides which ones to return and in what order.
-You can include a simple diagram or bullet list if helpful.
-
-### Algorithm Recipe
-
-For each song in the catalog, the total score is calculated as follows:
-
-| Condition | Points |
-|-----------|--------|
-| `song.genre == prefs.favorite_genre` | +1.5 |
-| `song.mood == prefs.favorite_mood` | +1.0 |
-| `max(0.0, 1.0 - abs(song.energy - prefs.target_energy))` | +0.0 to +1.0 |
-| **Maximum possible score** | **3.5** |
-
-Songs are then sorted by total score in descending order and the top-K are returned.
-
-### Weighting Tradeoff
-
-The genre bonus (+1.5) dominates the mood bonus (+1.0). A song that matches genre but misses on mood and energy can still score 1.5, while a song that matches mood perfectly and has near-perfect energy similarity can only reach 2.0. This means genre heavily influences the ranking, and two songs with a perfect mood + energy match (score: 2.0) will always beat a genre-only match (score: 1.5) — but a genre match alone ties a song that hits mood perfectly with 0.5 energy similarity (1.0 + 0.5 = 1.5). Consider doubling the energy weight or raising the mood bonus if you want a more nuanced feel-first ranking.
-
-### System Flowchart
+## Architecture
 
 ```mermaid
-flowchart LR
-    A["Input: User Preferences\n(favorite_genre, favorite_mood,\ntarget_energy, likes_acoustic)"]
-    B["Process: Score Each Song\n• +1.5 if genre matches\n• +1.0 if mood matches\n• +0.0–1.0 energy similarity"]
-    C["Output: Top-K Ranked Songs\n(sorted by score descending)"]
+flowchart TD
+    A["CLI Entry (src/main.py)"]
+    A -->|"--agent flag absent"| B["Standard Mode\nrecommend_songs()"]
+    A -->|"--agent flag present"| C["Agent Loop (src/agent.py)"]
 
-    A --> B --> C
+    C --> D["STEP 1: PLAN\nProbe catalog for mood/genre gaps\nSet initial config + diversity flag"]
+    D --> E["STEP 2: RECOMMEND\ncall recommend_songs(config, diversity)"]
+    E --> F["STEP 3: CRITIQUE\nDetect artist monopoly (>=2 same artist)\nDetect mood signal drop"]
+    F -->|"Issues found"| G["STEP 4: REFINE\nToggle diversity or inject warning\nRe-run recommend_songs()"]
+    F -->|"No issues"| H["STEP 5: FINALIZE\nEmit summary + tabulated output"]
+    G --> H
+
+    B --> I["tabulate + print\n(original transparent output)"]
+    H --> I
+
+    J["score_song() — shared\ngenre/mood/energy/tempo/valence/acoustic"]
+    E -->|"calls"| J
+    G -->|"calls"| J
+
+    K["data/songs.csv\n20 songs"]
+    J --> K
+
+    L["Human / Test Harness\ntests/test_agent.py"]
+    H -->|"stdout inspected by"| L
 ```
 
-### Ranking Worked Example
+**Components:**
 
-**User:** genre=pop, mood=happy, target_energy=0.80, likes_acoustic=False
-
-| Rank | Song | Score | Passes threshold? |
-|------|------|-------|-------------------|
-| 1 | Sunrise City | **0.971** | Yes |
-| 2 | Rooftop Lights | **0.891** | Yes |
-| 3 | Gym Hero | **0.748** | Yes |
-| 4 | Night Drive Loop | **0.412** | Yes |
-| 5 | Coffee Shop Stories | **0.311** | Yes |
-| — | Midnight Coding | 0.196 | **No — filtered** |
-| — | Library Rain | 0.181 | **No — filtered** |
-| — | Spacewalk Thoughts | 0.164 | **No — filtered** |
+| Component | File | Role |
+|---|---|---|
+| CLI entry | `src/main.py` | Parses `--agent` flag, loads songs, dispatches mode |
+| Standard scorer | `src/recommender.py` | `score_song`, `recommend_songs`, diversity penalty |
+| Agent loop | `src/agent.py` | Five-step agentic loop; all reasoning logged |
+| Evaluation harness | `tests/test_agent.py` | 9 pytest tests + printable summary table |
+| Song catalog | `data/songs.csv` | 20 songs, 10 fields each |
 
 ---
 
-## Getting Started
+## Setup
 
-### Setup
-
-1. Create a virtual environment (optional but recommended):
+1. Clone the repository and create a virtual environment (optional but recommended):
 
    ```bash
    python -m venv .venv
    source .venv/bin/activate      # Mac or Linux
    .venv\Scripts\activate         # Windows
+   ```
 
-2. Install dependencies
+2. Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3. Run the app:
+3. Run the original transparent recommender (all four profiles):
 
-```bash
-python -m src.main
-```
+   ```bash
+   python -m src.main
+   ```
 
-### Running Tests
+4. Run the agentic loop (plan→recommend→critique→refine→finalize):
 
-Run the starter tests with:
+   ```bash
+   python -m src.main --agent
+   ```
 
-```bash
-pytest
-```
+5. Run all tests:
 
-You can add more tests in `tests/test_recommender.py`.
+   ```bash
+   pytest
+   ```
 
----
+6. Run the agent vs baseline evaluation summary:
 
-## Sample Output
-
-Running `python src/main.py` against the 4 evaluation profiles produces the
-following ranked recommendations with per-reason numeric contributions:
-
-![Terminal output for all four profiles](docs/profile-recommendations.png)
-
-Profiles shown: High-Energy Pop, Chill Lofi, Deep Intense Rock, and an
-adversarial case (pop + sad + 0.9 energy) where no catalog song matches the
-requested mood — the system silently falls back to genre + energy.
-
-### Extended output (tempo/valence/acoustic scoring + diversity penalty + tabulated)
-
-![Tabulated output with extended scoring and diversity penalty](docs/profile-recommendations-tabulated.png)
-
-Same four profiles run against the extended scorer (tempo, valence, and
-acousticness now contribute) and re-run with a diversity penalty (artist
--0.60, genre -0.30) that breaks up single-artist monopolies in the top-5.
+   ```bash
+   python tests/test_agent.py
+   ```
 
 ---
 
-## Experiments You Tried
+## Sample Interactions
 
-See [model_card.md §7 Evaluation](model_card.md#7-evaluation) for the
-weight-shift experiment table and profile comparisons.
+### 1. Standard mode — High-Energy Pop
+
+```
+$ python -m src.main
+
+Loaded 20 songs.
+
+=== High-Energy Pop ===
+|   # | Title        | Artist    | Score | Reasons (with contributions)                                                                                   |
+|-----|--------------|-----------|-------|----------------------------------------------------------------------------------------------------------------|
+|   1 | Sunrise City | Neon Echo |  6.18 | genre match (+1.50), mood match (+1.00), energy similarity (+0.97), tempo similarity (+0.93), ...acousticness fit (+0.82) |
+|   2 | Gym Hero     | Max Pulse |  5.27 | genre match (+1.50), energy similarity (+0.92), tempo similarity (+0.93), valence similarity (+0.97), ...      |
+...
+```
+
+Every score is the arithmetic sum of its listed contributions — no hidden
+weights.
 
 ---
 
-## Limitations and Risks
+### 2. Agent mode — Chill Lofi (artist monopoly detected and corrected)
 
-See [model_card.md §6 Limitations and Bias](model_card.md#6-limitations-and-bias).
+```
+$ python -m src.main --agent
+
+[STEP 1] PLAN
+  PLAN NOTE: No up-front risks detected — running standard config.
+
+[STEP 2] RECOMMEND
+  #1  Library Rain [Paper Lanterns]  score=6.13
+  #2  Midnight Coding [LoRoom]       score=5.95
+  #3  Pulse Train [LoRoom]           score=5.11
+  #4  Focus Flow [LoRoom]            score=4.99   <-- LoRoom 3rd appearance
+  #5  Arctic Wind [Pale Summit]      score=4.58
+
+[STEP 3] CRITIQUE
+  CRITIQUE: MONOPOLY: 'LoRoom' appears 3x in top-5.
+
+[STEP 4] REFINE
+  REFINE ACTION: artist monopoly detected post-hoc — re-running with
+  diversity penalty (artist -0.60, genre -0.30).
+  REFINED #3  Arctic Wind [Pale Summit]       score=4.58
+  REFINED #4  Pulse Train [LoRoom]            score=4.21
+  REFINED #5  Spacewalk Thoughts [Orbit Bloom] score=4.15
+
+[STEP 5] FINALIZE
+  Profile  : Chill Lofi
+  Diversity: ON (refined)
+  Mood coverage : 4/5 top songs match mood='chill'
+  Artist spread : 'LoRoom' still appears 2x — catalog too small to fully eliminate.
+```
+
+**Before agent:** LoRoom appeared 3/5 times (60% monopoly).
+**After agent:** LoRoom appears 2/5 times; a new artist (Orbit Bloom) enters top-5.
+
+---
+
+### 3. Agent mode — Adversarial profile (mood absent, warning surfaced)
+
+```
+$ python -m src.main --agent
+
+[STEP 1] PLAN
+  PLAN NOTE: RISK: requested mood 'sad' has zero catalog matches — mood
+  signal will be silently dropped without intervention.
+
+[STEP 3] CRITIQUE
+  CRITIQUE: MOOD ABSENT: no catalog song has mood='sad'. Cannot satisfy
+  this preference — will surface warning.
+
+[STEP 5] FINALIZE
+  WARNING  : mood='sad' is not in the catalog. Recommendations are
+             ranked on genre + energy only.
+  Mood coverage : 0/5 top songs match mood='sad'
+```
+
+The baseline scorer silently ignores the unsatisfiable mood. The agent
+detects it at planning time, confirms it at critique, and prints an explicit
+warning in the finalized output — the user is no longer misled into thinking
+their mood preference was honored.
+
+---
+
+## Design Decisions and Trade-offs
+
+| Decision | Rationale | Trade-off |
+|---|---|---|
+| `--agent` opt-in flag | Keeps original scorer as default; grader can compare both modes side by side | Two invocation paths to maintain |
+| At-most-one refinement round | Prevents infinite loops on unsatisfiable profiles | A second critique after refinement is not run |
+| Diversity threshold = 2 appearances | 20-song catalog cannot fully eliminate overlaps; threshold reflects catalog constraint | Larger catalogs should lower this |
+| Warning injection for absent mood | Better than silent fallback; user sees exactly which signal was dropped | Does not change scoring, only communication |
+| All logging via Python `logging` | Structured, suppressible, timestampable | Log level hardcoded to INFO |
+| Reuse `score_song` and `recommend_songs` | No logic duplication; agent is orchestration only | Agent cannot tune per-signal weights independently without refactoring scorer |
+
+---
+
+## Testing Summary
+
+```
+pytest tests/ -v
+11 passed in 0.03s
+```
+
+| Test | What it checks |
+|---|---|
+| `test_recommend_returns_songs_sorted_by_score` | Baseline scorer ranks pop/happy song first |
+| `test_explain_recommendation_returns_non_empty_string` | Explanation output is non-empty |
+| `TestHighEnergyPop::test_mood_coverage_agent_vs_baseline` | Agent returns >= 1 happy song |
+| `TestHighEnergyPop::test_no_artist_monopoly` | No artist appears > 2 times |
+| `TestChillLofi::test_mood_coverage` | Agent returns >= 1 chill song |
+| `TestChillLofi::test_no_artist_monopoly` | No artist > 2 times |
+| `TestDeepIntenseRock::test_mood_coverage` | Agent returns >= 1 intense song |
+| `TestDeepIntenseRock::test_no_artist_monopoly` | No artist > 2 times |
+| `TestAdversarialSad::test_warning_emitted` | "WARNING" appears in stdout |
+| `TestAdversarialSad::test_mood_absent_acknowledged` | "absent" appears in critique output |
+| `TestAdversarialSad::test_no_artist_monopoly` | No artist > 2 times |
+
+**Agent vs baseline evaluation (all 4 profiles, 8 checks): 8/8 passed.**
+
+| Profile | Baseline mood_hits | Agent mood_hits | Baseline max_artist | Agent max_artist |
+|---|---|---|---|---|
+| High-Energy Pop | 3/5 (60%) | 3/5 (60%) | 2 (monopoly) | 2 (reduced) |
+| Chill Lofi | 3/5 (60%) | 4/5 (80%) | 3 (monopoly) | 2 (reduced) |
+| Deep Intense Rock | 4/5 (80%) | 4/5 (80%) | 2 (monopoly) | 2 (reduced) |
+| Adversarial sad | 0/5 (0%) | 0/5 (0%) | 2 (monopoly) | 2 (warning emitted) |
+
+Key improvement: Chill Lofi's LoRoom monopoly drops from 3/5 to 2/5 and a
+new artist (Orbit Bloom) enters the top-5. The adversarial profile now
+explicitly warns the user that `mood='sad'` is absent from the catalog —
+the baseline was silent.
 
 ---
 
 ## Reflection
 
-See [**Model Card**](model_card.md) and [**Personal Reflection**](reflection.md).
-
-
----
-
-## 7. `model_card_template.md`
-
-Combines reflection and model card framing from the Module 3 guidance. :contentReference[oaicite:2]{index=2}  
-
-```markdown
-# 🎧 Model Card - Music Recommender Simulation
-
-## 1. Model Name
-
-Give your recommender a name, for example:
-
-> VibeFinder 1.0
-
----
-
-## 2. Intended Use
-
-- What is this system trying to do
-- Who is it for
-
-Example:
-
-> This model suggests 3 to 5 songs from a small catalog based on a user's preferred genre, mood, and energy level. It is for classroom exploration only, not for real users.
-
----
-
-## 3. How It Works (Short Explanation)
-
-Describe your scoring logic in plain language.
-
-- What features of each song does it consider
-- What information about the user does it use
-- How does it turn those into a number
-
-Try to avoid code in this section, treat it like an explanation to a non programmer.
-
----
-
-## 4. Data
-
-Describe your dataset.
-
-- How many songs are in `data/songs.csv`
-- Did you add or remove any songs
-- What kinds of genres or moods are represented
-- Whose taste does this data mostly reflect
-
----
-
-## 5. Strengths
-
-Where does your recommender work well
-
-You can think about:
-- Situations where the top results "felt right"
-- Particular user profiles it served well
-- Simplicity or transparency benefits
-
----
-
-## 6. Limitations and Bias
-
-Where does your recommender struggle
-
-Some prompts:
-- Does it ignore some genres or moods
-- Does it treat all users as if they have the same taste shape
-- Is it biased toward high energy or one genre by default
-- How could this be unfair if used in a real product
-
----
-
-## 7. Evaluation
-
-How did you check your system
-
-Examples:
-- You tried multiple user profiles and wrote down whether the results matched your expectations
-- You compared your simulation to what a real app like Spotify or YouTube tends to recommend
-- You wrote tests for your scoring logic
-
-You do not need a numeric metric, but if you used one, explain what it measures.
-
----
-
-## 8. Future Work
-
-If you had more time, how would you improve this recommender
-
-Examples:
-
-- Add support for multiple users and "group vibe" recommendations
-- Balance diversity of songs instead of always picking the closest match
-- Use more features, like tempo ranges or lyric themes
-
----
-
-## 9. Personal Reflection
-
-A few sentences about what you learned:
-
-- What surprised you about how your system behaved
-- How did building this change how you think about real music recommenders
-- Where do you think human judgment still matters, even if the model seems "smart"
-
+See [model_card.md](model_card.md) for the full model card and
+[reflection.md](reflection.md) for the personal reflection including
+limitations, misuse risks, and AI collaboration notes.
