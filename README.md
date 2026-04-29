@@ -242,6 +242,31 @@ the baseline was silent.
 
 ---
 
+## Demo Screenshots
+
+**Standard mode — all 4 profiles with transparent scoring**
+![Standard mode output](assets/Screenshot%202026-04-29%20195450.png)
+
+**Standard mode — diversity penalty active**
+![Standard mode with diversity penalty](assets/Screenshot%202026-04-29%20195545.png)
+
+**Agent mode — High-Energy Pop (plan → recommend → critique → refine → finalize)**
+![Agent mode: High-Energy Pop](assets/Screenshot%202026-04-29%20195605.png)
+
+**Agent mode — Adversarial profile (mood='sad' flagged with WARNING)**
+![Agent mode: Adversarial sad profile](assets/Screenshot%202026-04-29%20195618.png)
+
+**pytest — 11 tests passing**
+![Test suite: 11 passed](assets/Screenshot%202026-04-29%20195627.png)
+
+**Agent vs baseline evaluation summary**
+![Agent vs baseline evaluation](assets/Screenshot%202026-04-29%20195641.png)
+
+**Full agent evaluation across all profiles**
+![Full agent evaluation](assets/Screenshot%202026-04-29%20195654.png)
+
+---
+
 ## Video Walkthrough
 
 [Watch the Loom walkthrough](https://www.loom.com/share/46f121e570ca4f3ebc11e181d56b1c71)
