@@ -244,7 +244,7 @@ the baseline was silent.
 
 ## Video Walkthrough
 
-[Watch the Loom walkthrough](https://www.loom.com/share/YOUR_LINK_HERE)
+[Watch the Loom walkthrough](https://www.loom.com/share/46f121e570ca4f3ebc11e181d56b1c71)
 
 ---
 
