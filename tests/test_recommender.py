@@ -1,4 +1,11 @@
-from src.recommender import Song, UserProfile, Recommender
+from src.recommender import (
+    Song,
+    UserProfile,
+    Recommender,
+    load_songs,
+    score_song,
+    recommend_songs,
+)
 
 def make_small_recommender() -> Recommender:
     songs = [
@@ -59,3 +66,56 @@ def test_explain_recommendation_returns_non_empty_string():
     explanation = rec.explain_recommendation(user, song)
     assert isinstance(explanation, str)
     assert explanation.strip() != ""
+
+
+# --- Functional API tests (load_songs / score_song / recommend_songs) ---
+
+POP_SONG = {
+    "id": 1,
+    "title": "Pop Anthem",
+    "artist": "Artist A",
+    "genre": "pop",
+    "mood": "happy",
+    "energy": 0.8,
+    "tempo_bpm": 120.0,
+    "valence": 0.9,
+    "danceability": 0.8,
+    "acousticness": 0.2,
+}
+
+
+def test_load_songs_converts_numeric_fields():
+    songs = load_songs("data/songs.csv")
+    assert len(songs) == 20
+    assert isinstance(songs[0]["id"], int)
+    assert isinstance(songs[0]["energy"], float)
+    assert isinstance(songs[0]["popularity"], float)
+
+
+def test_score_song_rewards_genre_match_with_reason():
+    prefs = {"genre": "pop", "mood": "happy", "energy": 0.8}
+    matched_score, reasons = score_song(prefs, POP_SONG)
+    other_score, _ = score_song(prefs, dict(POP_SONG, genre="country"))
+
+    assert matched_score > other_score
+    assert any("genre" in reason for reason in reasons)
+
+
+def test_recommend_songs_sorted_and_k():
+    songs = load_songs("data/songs.csv")
+    prefs = {"genre": "pop", "mood": "happy", "energy": 0.8}
+    recs = recommend_songs(prefs, songs, k=5)
+
+    assert len(recs) == 5
+    scores = [score for _, score, _ in recs]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_diversity_penalty_prefers_new_artists():
+    clones = [dict(POP_SONG, id=i, title=f"Clone {i}") for i in range(1, 4)]
+    rival = dict(POP_SONG, id=9, title="Rival", artist="Artist B", energy=0.7)
+    prefs = {"genre": "pop", "mood": "happy", "energy": 0.8}
+
+    recs = recommend_songs(prefs, clones + [rival], k=3)
+    artists = {song["artist"] for song, _, _ in recs}
+    assert "Artist B" in artists
