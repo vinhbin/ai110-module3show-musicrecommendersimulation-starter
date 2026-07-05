@@ -105,42 +105,54 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Sample Recommendation Output
 
-Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
+Output of `python -m src.main --profile high_energy_pop`:
 
 ```
-# e.g.:
-# User profile: genre=indie, mood=chill, energy=low
-# Recommendations:
-#   1. ...
-#   2. ...
-#   3. ...
+Loaded songs: 20
+Scoring mode: balanced
+
+=== Profile: high_energy_pop (genre=pop, mood=happy, energy=0.9, danceability=0.85) ===
+
+Rank  Title                    Artist           Genre      Mood        Score
+----------------------------------------------------------------------------
+1     Sunrise City             Neon Echo        pop        happy        5.07
+      why: genre match: pop (+2.0); mood match: happy (+1.0); energy 0.82 vs target 0.90
+           (+1.38); danceability 0.79 vs target 0.85 (+0.47); popularity 72/100 (+0.22)
+2     Gym Hero                 Max Pulse        pop        intense      4.18
+      why: genre match: pop (+2.0); energy 0.93 vs target 0.90 (+1.46); danceability 0.88 vs
+           target 0.85 (+0.48); popularity 80/100 (+0.24)
+3     Rooftop Lights           Indigo Parade    indie pop  happy        3.97
+      why: related genre: indie pop ~ pop (+1.0); mood match: happy (+1.0); energy 0.76 vs
+           target 0.90 (+1.29); danceability 0.82 vs target 0.85 (+0.48); popularity 66/100
+           (+0.20)
+4     Isla Caliente            Rumba Vista      reggaeton  happy        3.17
+      why: mood match: happy (+1.0); energy 0.88 vs target 0.90 (+1.47); danceability 0.95 vs
+           target 0.85 (+0.45); popularity 82/100 (+0.25)
+5     Bassline Horizon         DJ Nova          edm        euphoric     3.16
+      why: related genre: edm ~ pop (+1.0); energy 0.94 vs target 0.90 (+1.44); danceability
+           0.93 vs target 0.85 (+0.46); popularity 85/100 (+0.26)
 ```
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
+Run `python -m src.main` for all six evaluation profiles, `--mode` to switch scoring strategies (`balanced`, `genre_first`, `mood_first`, `energy_focused`, `energy_experiment`), `--k` for list length, and `--no-diversity` to disable the diversity penalty. Full outputs for every profile are in [model_card.md](model_card.md).
 
 ---
 
 ## Experiments You Tried
 
-Use this section to document the experiments you ran. For example:
-
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+- **Weight shift (`--mode energy_experiment`: genre 2.0 → 1.0, energy 1.5 → 3.0).** The chill-lofi profile's #5 changed from Focus Flow (lofi) to Moonlight Study No. 3 (classical) — doubling energy's weight reached across genre lines and surfaced a quiet piano piece. Gym Hero fell from #2 to #4 for the pop profile once its genre advantage was halved. Verdict: lists became more genre-diverse but less taste-anchored — *different*, not clearly better. The #1 picks were mostly stable; the tail of each list is what's weight-sensitive.
+- **Adversarial profiles.** A conflicted user (genre=edm, mood=sad, energy=0.95) got a *euphoric* track at #1 — genre (+2.0) outbids mood (+1.0) whenever they disagree. A user asking for a genre that isn't in the catalog (k-pop) degraded gracefully to mood/energy matching. A perfectly neutral user (all targets 0.5) got scores clustered within 0.2 points, meaning popularity effectively decided their ranking.
+- **Diversity penalty on/off (`--no-diversity`).** Without it, LoRoom takes two of five chill-lofi slots; with it, the second LoRoom track pays −0.75 and drops, letting another artist in.
 
 ---
 
 ## Limitations and Risks
 
-Summarize some limitations of your recommender.
+- **Tiny, imbalanced catalog:** 20 songs; lofi has 3 while rock, metal, country and most genres have exactly 1 — so most of a rock fan's list can't actually be rock.
+- **Genre beats mood in conflicts:** a user asking for sad music still gets a euphoric track if the genre label matches (see the sad-banger experiment).
+- **Universal donors:** high-energy, high-popularity songs (Gym Hero, Bassline Horizon) appear in nearly every profile's top 5 — a miniature popularity/filter-bubble effect, amplified by the deliberate popularity bonus.
+- **No understanding of sound:** the system trusts CSV labels; it has never "heard" a song, knows no lyrics or language, and can't discover taste the user didn't state.
 
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
+The [model card](model_card.md) goes deeper on each of these.
 
 ---
 
@@ -150,10 +162,9 @@ Read and complete `model_card.md`:
 
 [**Model Card**](model_card.md)
 
-Write 1 to 2 paragraphs here about what you learned:
+What I learned about turning data into predictions: a recommendation is just three separable decisions — *what data represents taste* (the features), *how one song is judged* (the scoring rule), and *how judgments become a list* (the ranking rule). Once I separated those, the system stopped feeling like magic. The scoring rule is where all the opinions live: choosing +2.0 for genre and +1.0 for mood **is** the algorithm's worldview, and every ranking downstream inherits it. The most useful design decision was making numeric features reward *closeness* to a target instead of magnitude — that single change is why the chill profile never gets metal.
 
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
+On bias: I expected bias to come from bad data, but I watched it emerge from *reasonable* choices. My hand-tuned weights silently decided that genre identity matters more than emotional state (the sad-EDM user got a euphoric anthem). My deliberate popularity bonus made already-popular songs show up for almost everyone — the exact feedback loop that makes real platforms homogenize taste. And my catalog's imbalance (3 lofi songs, 1 rock song) meant some users get served well and others get leftovers. None of that required malice or even a mistake — which is exactly why real systems need model cards, evaluation across diverse user profiles, and adversarial testing.
 
 
 
