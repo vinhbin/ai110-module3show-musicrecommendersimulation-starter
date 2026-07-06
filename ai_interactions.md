@@ -10,7 +10,7 @@
 
 **What task did you give the agent?**
 
-I gave Claude Code (agent mode) the full Challenge 1 upgrade as one multi-step task: expand `data/songs.csv` from 10 to 20 songs covering genres/moods not in the starter file, add 5 advanced attributes not present in the baseline (popularity 0–100, release_decade, detailed mood_tags, instrumentalness, liveness), and update the scoring logic in `src/recommender.py` so the new attributes actually affect scores (mood-tag partial credit + popularity boost).
+I gave Claude Code (agent mode) the full Challenge 1 upgrade as one multi-step task: expand `data/songs.csv` from 10 to 20 songs covering genres/moods not in the starter file, add 5 advanced attributes not present in the baseline (popularity 0–100, release_decade, detailed mood_tags, instrumentalness, liveness), and update the scoring logic in `src/recommender.py` so all five new attributes actually affect scores (mood-tag partial credit, popularity boost, instrumentalness/liveness closeness, and an era-closeness rule for release decade — exercised by the `vintage_instrumental` profile).
 
 **Prompts used:**
 
@@ -30,6 +30,7 @@ I gave Claude Code (agent mode) the full Challenge 1 upgrade as one multi-step t
 - Verified the CSV shape myself (`20 rows × 15 columns`) instead of trusting the agent's claim, and spot-checked that mood_tags used semicolons (commas would have silently broken the CSV).
 - Made the new tests fail first, then pass — the agent's first version of the dataset had a trailing whitespace-only line that would have crashed `int(row["id"])`; we added a blank-row guard in `load_songs` after I caught it.
 - Hand-checked two "why" breakdowns against the weight table (Sunrise City 5.07 and Bassline Horizon 3.74) to confirm the printed points summed to the score.
+- Ran a second, adversarial AI review pass (four independent reviewers, each finding re-verified by a separate skeptic agent) over the finished project. It caught real problems I had missed: my headline bias explanation ("genre outbids mood") was contradicted by my own printed point breakdowns (the categorical points tied; energy + popularity decided it), three of the five advanced attributes were loaded but not yet wired into scoring, two experiment write-ups overstated what the diversity penalty actually did, and negative `--k` behaved inconsistently between code paths. I fixed all of these and re-verified — the corrected story is in the model card.
 - The agent's judgment I overrode: it initially proposed adding tempo closeness to the balanced mode; I kept the recipe smaller so each weight stays explainable.
 
 ---

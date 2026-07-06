@@ -35,7 +35,7 @@ The **UserProfile** stores target values for the features the user cares about:
 
 - `genre` and `mood` (exact-match preferences)
 - `energy` (0.0–1.0 target — the system rewards songs *close to* the target, not just high or low)
-- Optional targets: `valence`, `danceability`, `acousticness`
+- Optional targets: `valence`, `danceability`, `acousticness`, `instrumentalness`, `liveness`, and a preferred `release_decade`
 - Optional `mode` to switch scoring strategies
 
 ### The Algorithm Recipe (scoring rule)
@@ -49,7 +49,9 @@ The **UserProfile** stores target values for the features the user cares about:
 | Exact mood match | **+1.0** |
 | Preferred mood appears in `mood_tags` | +0.5 |
 | Energy closeness | up to **+1.5** × (1 − \|target − song\|) |
-| Valence / danceability / acousticness closeness (only if the profile sets a target) | up to +0.5 each |
+| Valence / danceability / acousticness / instrumentalness closeness (only if the profile sets a target) | up to +0.5 each |
+| Liveness closeness (only if the profile sets a target) | up to +0.3 |
+| Era closeness (release decade near the target decade, fading to zero across 50 years) | up to +0.5 |
 | Popularity boost | up to +0.3 × (popularity / 100) |
 
 Genre is weighted highest (2×) because genre is the strongest single predictor of whether a listener will accept a song; mood matters but is fuzzier (a "chill" listener may still enjoy a "focused" track), so it earns half. Numerical features use **closeness, not magnitude**: a user with `energy: 0.4` should get 0.42-energy lofi, not 0.97-energy metal, so points scale with `1 − |gap|`.
@@ -133,23 +135,23 @@ Rank  Title                    Artist           Genre      Mood        Score
            0.93 vs target 0.85 (+0.46); popularity 85/100 (+0.26)
 ```
 
-Run `python -m src.main` for all six evaluation profiles, `--mode` to switch scoring strategies (`balanced`, `genre_first`, `mood_first`, `energy_focused`, `energy_experiment`), `--k` for list length, and `--no-diversity` to disable the diversity penalty. Full outputs for every profile are in [model_card.md](model_card.md).
+Run `python -m src.main` for all seven evaluation profiles, `--mode` to switch scoring strategies (`balanced`, `genre_first`, `mood_first`, `energy_focused`, `energy_experiment`), `--k` for list length, and `--no-diversity` to disable the diversity penalty. Full outputs for every profile are in [model_card.md](model_card.md).
 
 ---
 
 ## Experiments You Tried
 
 - **Weight shift (`--mode energy_experiment`: genre 2.0 → 1.0, energy 1.5 → 3.0).** The chill-lofi profile's #5 changed from Focus Flow (lofi) to Moonlight Study No. 3 (classical) — doubling energy's weight reached across genre lines and surfaced a quiet piano piece. Gym Hero fell from #2 to #4 for the pop profile once its genre advantage was halved. Verdict: lists became more genre-diverse but less taste-anchored — *different*, not clearly better. The #1 picks were mostly stable; the tail of each list is what's weight-sensitive.
-- **Adversarial profiles.** A conflicted user (genre=edm, mood=sad, energy=0.95) got a *euphoric* track at #1 — genre (+2.0) outbids mood (+1.0) whenever they disagree. A user asking for a genre that isn't in the catalog (k-pop) degraded gracefully to mood/energy matching. A perfectly neutral user (all targets 0.5) got scores clustered within 0.2 points, meaning popularity effectively decided their ranking.
-- **Diversity penalty on/off (`--no-diversity`).** Without it, LoRoom takes two of five chill-lofi slots; with it, the second LoRoom track pays −0.75 and drops, letting another artist in.
+- **Adversarial profiles.** A conflicted user (genre=edm, mood=sad, energy=0.95) got a *euphoric* track at #1. My first explanation — "genre (+2.0) outbids mood (+1.0)" — turned out to be **wrong** when I recomputed the breakdowns: the sad track ties on categorical points (related genre +1.0 plus mood +1.0), and the euphoric track actually wins on energy closeness (+0.24) and popularity (+0.06). The real bias is that this catalog equates sadness with low energy, so a "sad banger" request gets resolved toward the crowd-pleaser. A user asking for a genre that isn't in the catalog (k-pop) degraded gracefully to mood/energy matching. A perfectly neutral user (all targets 0.5) got scores clustered within 0.2 points — their ranking is decided by "mid-ness," with popularity only breaking near-ties (removing it entirely just swaps ranks #2 and #3).
+- **Diversity penalty on/off (`--no-diversity`).** At `k=5` the penalty demotes the second LoRoom track (Focus Flow drops from #4 to #5, −0.75 artist / −0.30 genre) but the same five songs remain. At `--k 4` it changes list *membership*: Coffee Shop Stories (Slow Stereo) replaces Focus Flow. With a 20-song catalog there are often no close substitutes, so the penalty reorders more than it excludes.
 
 ---
 
 ## Limitations and Risks
 
 - **Tiny, imbalanced catalog:** 20 songs; lofi has 3 while rock, metal, country and most genres have exactly 1 — so most of a rock fan's list can't actually be rock.
-- **Genre beats mood in conflicts:** a user asking for sad music still gets a euphoric track if the genre label matches (see the sad-banger experiment).
-- **Universal donors:** high-energy, high-popularity songs (Gym Hero, Bassline Horizon) appear in nearly every profile's top 5 — a miniature popularity/filter-bubble effect, amplified by the deliberate popularity bonus.
+- **Conflicting preferences resolve toward the crowd-pleaser:** a user asking for sad, high-energy music gets a euphoric track at #1 — the catalog's sad songs are mostly low-energy, so the energy and popularity rules quietly break the tie against the user's stated mood (see the sad-banger experiment).
+- **Universal donors:** high-energy, high-popularity songs (Gym Hero, Bassline Horizon) appear in the top 5 of half the profiles tested — exactly the three with energy targets of 0.9+ — because a high energy target plus the popularity nudge rewards the same bangers regardless of genre.
 - **No understanding of sound:** the system trusts CSV labels; it has never "heard" a song, knows no lyrics or language, and can't discover taste the user didn't state.
 
 The [model card](model_card.md) goes deeper on each of these.
@@ -164,7 +166,7 @@ Read and complete `model_card.md`:
 
 What I learned about turning data into predictions: a recommendation is just three separable decisions — *what data represents taste* (the features), *how one song is judged* (the scoring rule), and *how judgments become a list* (the ranking rule). Once I separated those, the system stopped feeling like magic. The scoring rule is where all the opinions live: choosing +2.0 for genre and +1.0 for mood **is** the algorithm's worldview, and every ranking downstream inherits it. The most useful design decision was making numeric features reward *closeness* to a target instead of magnitude — that single change is why the chill profile never gets metal.
 
-On bias: I expected bias to come from bad data, but I watched it emerge from *reasonable* choices. My hand-tuned weights silently decided that genre identity matters more than emotional state (the sad-EDM user got a euphoric anthem). My deliberate popularity bonus made already-popular songs show up for almost everyone — the exact feedback loop that makes real platforms homogenize taste. And my catalog's imbalance (3 lofi songs, 1 rock song) meant some users get served well and others get leftovers. None of that required malice or even a mistake — which is exactly why real systems need model cards, evaluation across diverse user profiles, and adversarial testing.
+On bias: I expected bias to come from bad data, but I watched it emerge from *reasonable* choices — and I learned that even the system's author can misread it. When the sad-EDM user got a euphoric anthem at #1, I confidently wrote "genre outbids mood." An adversarial re-check of the actual point breakdowns proved me wrong: the categorical points tied, and energy closeness plus popularity decided the winner. The real bias lives in the data (this catalog treats "sad" and "high-energy" as nearly incompatible) and in small nudges (popularity, energy) that quietly resolve conflicts toward crowd-pleasers. My catalog's imbalance (3 lofi songs, 1 rock song) meant some users get served well and others get leftovers. None of that required malice or even a mistake — which is exactly why real systems need model cards, evaluation across diverse user profiles, and adversarial testing *of the explanations, not just the outputs*.
 
 
 

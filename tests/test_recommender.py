@@ -111,6 +111,27 @@ def test_recommend_songs_sorted_and_k():
     assert scores == sorted(scores, reverse=True)
 
 
+def test_recommend_songs_negative_k_returns_empty_both_paths():
+    songs = load_songs("data/songs.csv")
+    prefs = {"genre": "pop", "mood": "happy", "energy": 0.8}
+
+    assert recommend_songs(prefs, songs, k=-1) == []
+    assert recommend_songs(prefs, songs, k=-1, diversity=False) == []
+
+
+def test_advanced_attributes_affect_score_when_targeted():
+    prefs = {"instrumentalness": 0.9, "release_decade": 1980}
+    near = dict(POP_SONG, instrumentalness=0.9, release_decade=1980.0)
+    far = dict(POP_SONG, instrumentalness=0.1, release_decade=2020.0)
+
+    near_score, near_reasons = score_song(prefs, near)
+    far_score, _ = score_song(prefs, far)
+
+    assert near_score > far_score
+    assert any("instrumentalness" in reason for reason in near_reasons)
+    assert any("era" in reason for reason in near_reasons)
+
+
 def test_diversity_penalty_prefers_new_artists():
     clones = [dict(POP_SONG, id=i, title=f"Clone {i}") for i in range(1, 4)]
     rival = dict(POP_SONG, id=9, title="Rival", artist="Artist B", energy=0.7)

@@ -30,6 +30,14 @@ PROFILES = {
     "unknown_genre": {"genre": "k-pop", "mood": "happy", "energy": 0.7},
     # Adversarial: no categorical anchors, all numeric targets dead center.
     "perfectly_neutral": {"energy": 0.5, "valence": 0.5, "danceability": 0.5},
+    # Exercises the advanced attributes: instrumentalness and release-decade targets.
+    "vintage_instrumental": {
+        "genre": "classical",
+        "mood": "calm",
+        "energy": 0.2,
+        "instrumentalness": 0.95,
+        "release_decade": 1980,
+    },
 }
 
 

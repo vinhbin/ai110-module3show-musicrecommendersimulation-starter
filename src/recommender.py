@@ -58,6 +58,9 @@ WEIGHT_PRESETS: Dict[str, Dict[str, float]] = {
         "valence": 0.5,
         "danceability": 0.5,
         "acousticness": 0.5,
+        "instrumentalness": 0.5,
+        "liveness": 0.3,
+        "release_decade": 0.5,
         "popularity": 0.3,
     },
     "genre_first": {
@@ -69,6 +72,9 @@ WEIGHT_PRESETS: Dict[str, Dict[str, float]] = {
         "valence": 0.25,
         "danceability": 0.25,
         "acousticness": 0.25,
+        "instrumentalness": 0.25,
+        "liveness": 0.15,
+        "release_decade": 0.25,
         "popularity": 0.2,
     },
     "mood_first": {
@@ -80,6 +86,9 @@ WEIGHT_PRESETS: Dict[str, Dict[str, float]] = {
         "valence": 0.75,
         "danceability": 0.5,
         "acousticness": 0.5,
+        "instrumentalness": 0.5,
+        "liveness": 0.25,
+        "release_decade": 0.25,
         "popularity": 0.2,
     },
     "energy_focused": {
@@ -91,6 +100,9 @@ WEIGHT_PRESETS: Dict[str, Dict[str, float]] = {
         "valence": 0.5,
         "danceability": 1.0,
         "acousticness": 0.5,
+        "instrumentalness": 0.5,
+        "liveness": 0.25,
+        "release_decade": 0.25,
         "popularity": 0.2,
     },
     # Phase 4 experiment: genre halved (2.0 -> 1.0), energy doubled (1.5 -> 3.0).
@@ -103,12 +115,22 @@ WEIGHT_PRESETS: Dict[str, Dict[str, float]] = {
         "valence": 0.5,
         "danceability": 0.5,
         "acousticness": 0.5,
+        "instrumentalness": 0.5,
+        "liveness": 0.3,
+        "release_decade": 0.5,
         "popularity": 0.3,
     },
 }
 
 # Numeric features scored by closeness to the user's target (0.0-1.0 scales).
-CLOSENESS_FEATURES = ("energy", "valence", "danceability", "acousticness")
+CLOSENESS_FEATURES = (
+    "energy",
+    "valence",
+    "danceability",
+    "acousticness",
+    "instrumentalness",
+    "liveness",
+)
 
 DIVERSITY_ARTIST_PENALTY = 0.75
 DIVERSITY_GENRE_PENALTY = 0.3
@@ -226,11 +248,24 @@ def score_song(
         if target is None or not isinstance(value, (int, float)):
             continue
         closeness = 1.0 - abs(float(target) - float(value))
-        points = closeness * weights[feature]
+        points = closeness * weights.get(feature, 0)
         if points > 0:
             score += points
             reasons.append(
                 f"{feature} {value:.2f} vs target {float(target):.2f} (+{points:.2f})"
+            )
+
+    # Era: reward songs whose release decade is near the user's preferred decade
+    # (full credit at an exact match, fading to zero across 50 years).
+    target_decade = user_prefs.get("release_decade")
+    decade = song.get("release_decade")
+    if target_decade is not None and isinstance(decade, (int, float)):
+        closeness = 1.0 - min(1.0, abs(float(target_decade) - float(decade)) / 50.0)
+        points = closeness * weights.get("release_decade", 0)
+        if points > 0:
+            score += points
+            reasons.append(
+                f"era {decade:.0f}s vs target {float(target_decade):.0f}s (+{points:.2f})"
             )
 
     # Popularity: a small, deliberate popularity bias (documented in the model card).
@@ -251,6 +286,7 @@ def recommend_songs(
     diversity: bool = True,
 ) -> List[Tuple[Dict, float, List[str]]]:
     """Rank every song with score_song and return the top k as (song, score, reasons)."""
+    k = max(0, k)  # negative k is nonsense; both paths below should agree it means "none"
     weights = WEIGHT_PRESETS[mode] if mode else None
 
     scored = [(song, *score_song(user_prefs, song, weights)) for song in songs]

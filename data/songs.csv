@@ -19,3 +19,4 @@ id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness,po
 18,Neon Tears,Neon Echo,synthwave,sad,0.78,112,0.35,0.74,0.15,66,2020,sad;driving;bittersweet,0.40,0.10
 19,Isla Caliente,Rumba Vista,reggaeton,happy,0.88,96,0.90,0.95,0.10,82,2020,happy;summer;party,0.01,0.20
 20,Sunday Morning Soul,The Gold Tones,soul,uplifting,0.60,105,0.85,0.72,0.55,58,1970,uplifting;warm;classic,0.02,0.50
+                                                                                
